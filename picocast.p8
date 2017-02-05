@@ -27,13 +27,11 @@ function vec.__sub(a, b)
 end
 
 function vec.__mul(a, b)
-  -- Dot Product
   if type(a) == "number" then
     return new_vec(b.x * a, b.y * a)
   elseif type(b) == "number" then
     return new_vec(a.x * b, a.y * b)
   end
-  -- Cross Product
   return a.x * b.x + a.y * b.y
 end
 
@@ -81,6 +79,8 @@ map={
   {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 }
+mapwidth = 24
+mapheight = 24
 
 palette={
   {7,6},
@@ -91,8 +91,8 @@ palette={
 }
 
 screenheight = 128
-camwidth = 4
-camdist = 2
+camwidth = 1
+camdist = 1.2
 campixeloffset = camwidth / 128
 
 rotspeed = 0.015
@@ -133,65 +133,67 @@ function _draw()
   target -= right * campixeloffset * 64
 
   for i = 0, 127 do
-    local raydir = normalised(target - pos)
-    local raypos = copy_vec(pos)
+    local raydir = target - pos
 
-    local mapx = flr(raypos.x)
-    local mapy = flr(raypos.y)
+    local mapx = flr(pos.x)
+    local mapy = flr(pos.y)
 
     -- length of ray from one x or y-side to next x or y-side
-    local delta = new_vec(
-      sqrt(1 + (raydir.y * raydir.y) / (raydir.x * raydir.x)),
-      sqrt(1 + (raydir.x * raydir.x) / (raydir.y * raydir.y))
-    )
+    local deltax = sqrt(1 + (raydir.y * raydir.y) / (raydir.x * raydir.x))
+    local deltay = sqrt(1 + (raydir.x * raydir.x) / (raydir.y * raydir.y))
 
-    -- calculate step and initial sideDist
+    -- initialise step values
     local stepx, stepy, sidedistx, sidedisty
     if raydir.x < 0 then
       stepx = -1
-      sidedistx = (raypos.x - mapx) * delta.x
+      sidedistx = (pos.x - mapx) * deltax
     else
       stepx = 1
-      sidedistx = (mapx + 1.0 - raypos.x) * delta.x
+      sidedistx = (mapx + 1.0 - pos.x) * deltax
     end
     if raydir.y < 0 then
       stepy = -1
-      sidedisty = (raypos.y - mapy) * delta.y
+      sidedisty = (pos.y - mapy) * deltay
     else
       stepy = 1
-      sidedisty = (mapy + 1.0 - raypos.y) * delta.y
+      sidedisty = (mapy + 1.0 - pos.y) * deltay
     end
 
-    local hit = 0
     local side
+    local hit = 0
     while hit == 0 do
       -- jump to next map square, OR in x-direction, OR in y-direction
       if sidedistx < sidedisty then
-        sidedistx += delta.x
+        sidedistx += deltax
         mapx += stepx
         side = 0
       else
-        sidedisty += delta.y
+        sidedisty += deltay
         mapy += stepy
         side = 1
       end
 
       -- check if ray has hit a wall
-      hit = map[mapx + 1][mapy + 1]
+      if mapx >= 0 and mapx < mapwidth
+        and mapy >= 0 and mapy < mapheight then
+          hit = map[mapx + 1][mapy + 1]
+      else
+        break
+      end
     end
 
     if(hit > 0) then
-    -- calculate perpendicular
+      -- calculate perpendicular distance between wall and cam plane
       local perpwalldist
       if side == 0 then
-        perpwalldist = (mapx - raypos.x + (1 - stepx) / 2) / raydir.x
+        perpwalldist = (mapx - pos.x + (1 - stepx) / 2) / raydir.x
       else
-        perpwalldist = (mapy - raypos.y + (1 - stepy) / 2) / raydir.y
+        perpwalldist = (mapy - pos.y + (1 - stepy) / 2) / raydir.y
       end
 
       -- calculate height of line to draw on screen
       local lineheight = screenheight / perpwalldist
-      lineheight *= 0.5
+
       if i == 0 then
         printh("lineheight: " .. lineheight)
       end
@@ -207,7 +209,8 @@ function _draw()
   end
 
   color(7)
-  print(vec2str(dir))
+  print("dir: " .. vec2str(dir))
+  print("pos: " .. vec2str(pos))
 end
 
 __gfx__
