@@ -1,6 +1,214 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
+-- vector metatable
+local vec = {}
+
+function new_vec(x, y)
+  local t = {x=x, y=y}
+  setmetatable(t, vec)
+  return t
+end
+
+function copy_vec(v)
+  return new_vec(v.x, v.y)
+end
+
+function vec.__add(a, b)
+  return new_vec(
+    a.x + b.x,
+    a.y + b.y)
+end
+
+function vec.__sub(a, b)
+  return new_vec(
+    a.x - b.x,
+    a.y - b.y)
+end
+
+function vec.__mul(a, b)
+  -- Dot Product
+  if type(a) == "number" then
+    return new_vec(b.x * a, b.y * a)
+  elseif type(b) == "number" then
+    return new_vec(a.x * b, a.y * b)
+  end
+  -- Cross Product
+  return a.x * b.x + a.y * b.y
+end
+
+function vec.__eq(a, b)
+  return a.x == b.x and a.y == b.y
+end
+
+function vec2str(v)
+  return "(" .. v.x .. ", " .. v.y .. ")"
+end
+
+function magnitude(v)
+    return sqrt(v.x^2 + v.y^2)
+end
+
+function normalised(v)
+  return copy_vec(v * (1 / magnitude(v)))
+end
+
+//----------------------------------------------
+
+map={
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
+  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1},
+  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,0,0,0,0,5,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+}
+
+palette={
+  {7,6},
+  {14, 8},
+  {10, 9},
+  {11, 3},
+  {12, 1}
+}
+
+screenheight = 128
+camwidth = 4
+camdist = 2
+campixeloffset = camwidth / 128
+
+rotspeed = 0.015
+movespeed = 0.08
+
+pos = new_vec(11.5, 11.5)
+facing = 0
+dir = new_vec(0, 1)
+
+function _init()
+end
+
+function _update()
+  if btn(1) then
+    facing += rotspeed
+  elseif btn(0) then
+    facing -= rotspeed
+  end
+
+  dir.x = sin(facing)
+  dir.y = -cos(facing)
+
+  if btn(2) then
+    pos += dir * movespeed
+  elseif btn(3) then
+    pos -= dir * movespeed
+  end
+end
+
+function _draw()
+  cls()
+
+  rectfill(0, 65, 127, 127, 5)
+
+  local right = new_vec(dir.y, -dir.x)
+  local target = pos + (dir * camdist)
+
+  target -= right * campixeloffset * 64
+
+  for i = 0, 127 do
+    local raydir = normalised(target - pos)
+    local raypos = copy_vec(pos)
+
+    local mapx = flr(raypos.x)
+    local mapy = flr(raypos.y)
+
+    -- length of ray from one x or y-side to next x or y-side
+    local delta = new_vec(
+      sqrt(1 + (raydir.y * raydir.y) / (raydir.x * raydir.x)),
+      sqrt(1 + (raydir.x * raydir.x) / (raydir.y * raydir.y))
+    )
+
+    -- calculate step and initial sideDist
+    local stepx, stepy, sidedistx, sidedisty
+    if raydir.x < 0 then
+      stepx = -1
+      sidedistx = (raypos.x - mapx) * delta.x
+    else
+      stepx = 1
+      sidedistx = (mapx + 1.0 - raypos.x) * delta.x
+    end
+    if raydir.y < 0 then
+      stepy = -1
+      sidedisty = (raypos.y - mapy) * delta.y
+    else
+      stepy = 1
+      sidedisty = (mapy + 1.0 - raypos.y) * delta.y
+    end
+
+    local hit = 0
+    local side
+    while hit == 0 do
+      -- jump to next map square, OR in x-direction, OR in y-direction
+      if sidedistx < sidedisty then
+        sidedistx += delta.x
+        mapx += stepx
+        side = 0
+      else
+        sidedisty += delta.y
+        mapy += stepy
+        side = 1
+      end
+
+      -- check if ray has hit a wall
+      hit = map[mapx + 1][mapy + 1]
+    end
+
+    if(hit > 0) then
+    -- calculate perpendicular
+      local perpwalldist
+      if side == 0 then
+        perpwalldist = (mapx - raypos.x + (1 - stepx) / 2) / raydir.x
+      else
+        perpwalldist = (mapy - raypos.y + (1 - stepy) / 2) / raydir.y
+      end
+
+      -- calculate height of line to draw on screen
+      local lineheight = screenheight / perpwalldist
+      lineheight *= 0.5
+      if i == 0 then
+        printh("lineheight: " .. lineheight)
+      end
+
+      local drawstart = (screenheight * 0.5) - (lineheight  * 0.5)
+      local drawend = (screenheight * 0.5) + (lineheight * 0.5)
+
+      local color = palette[hit][side + 1]
+      line(i, drawstart, i, drawend, color)
+    end
+
+    target += (right * campixeloffset)
+  end
+
+  color(7)
+  print(vec2str(dir))
+end
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -298,4 +506,3 @@ __music__
 00 41424344
 00 41424344
 00 41424344
-
